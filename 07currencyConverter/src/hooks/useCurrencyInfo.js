@@ -1,18 +1,49 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-function useCurrencyInfo(currency) {
-    const [data, setData] = useState({});
-    useEffect(() => {
-        const API_KEY = import.meta.env.VITE_EXCHANGE_API_KEY;
-        const currencies = `${currency}`; // add more like 'PKR, INR, AUD'
-        let url = `http://api.exchangerate.host/live?access_key=${API_KEY}&currencies=${currencies}&format=1`;
-        fetch(url)
-            .then((res) => res.json())
-            .then((res) => setData(res.quotes));
-    }, [currency]);
-    console.log(data);
+function useCurrencyInfo() {
+    const [rate, setRate] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    return data;
+    const getRate = async (toCurrency) => {
+        setIsLoading(true);
+        setError(null);
+        setRate(null);
+
+        try {
+            const API_KEY = import.meta.env.VITE_EXCHANGE_API_KEY;
+            const formattedCurrency = toCurrency.toUpperCase();
+            const url = `https://api.exchangerate.host/live?access_key=${API_KEY}&currencies=${formattedCurrency}&format=1`;
+
+            const response = await fetch(url);
+            const result = await response.json();
+
+            if (result.success && result.quotes) {
+                const key = `USD${formattedCurrency}`;
+
+                const fetchedRate = result.quotes[key];
+
+                if (fetchedRate) {
+                    setRate(fetchedRate);
+                    return fetchedRate;
+                } else {
+                    throw new Error(
+                        `Rate not found for currency: ${formattedCurrency}`
+                    );
+                }
+            } else {
+                throw new Error(
+                    result.error?.info || "API returned unsuccessful response."
+                );
+            }
+        } catch (err) {
+            setError(err.message || "Something went wrong.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return { rate, isLoading, error, getRate };
 }
 
 export default useCurrencyInfo;
